@@ -187,6 +187,7 @@ class PowerUp {
   constructor(x, y, type = 'speed') {
     this.x = x;
     this.y = y;
+    this.type = type;
     this.radius = 10;
     this.dead = false;
     this.type = type;
@@ -216,6 +217,16 @@ class PowerUp {
       ctx.beginPath();
       ctx.arc(0, 0, 3, 0, Math.PI * 2);
       ctx.stroke();
+    } else if (this.type === 'triple') {
+      ctx.strokeStyle = '#f0f';
+      // Tres barras paralelas "|||"
+      for (let i = 0; i < 3; i++) {
+        const dx = i * 5 - 5;
+        ctx.beginPath();
+        ctx.moveTo(dx, -7);
+        ctx.lineTo(dx,  7);
+        ctx.stroke();
+      }
     } else {
       ctx.strokeStyle = '#0ff';
       // Dos chevrones ">>"
@@ -248,6 +259,7 @@ class Ship {
     this.shootCooldown = 0;
     this.speedBoost    = 0;
     this.shield        = 0;
+    this.tripleShot    = 0;
     this.dead          = false;
   }
 
@@ -257,6 +269,7 @@ class Ship {
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedBoost    > 0) this.speedBoost    -= dt;
     if (this.shield        > 0) this.shield        -= dt;
+    if (this.tripleShot    > 0) this.tripleShot    -= dt;
 
     const ROT   = 3.5;   // rad/s
     const THRUST = 260;  // px/s²
@@ -282,9 +295,17 @@ class Ship {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
     const NOSE = 21;
-    const ox = this.x + Math.cos(this.angle) * NOSE;
-    const oy = this.y + Math.sin(this.angle) * NOSE;
-    return [new Bullet(ox, oy, this.angle)];
+    const SPACING = 10;
+    const triple = this.tripleShot > 0;
+    const count = triple ? 3 : 1;
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const offset = NOSE + i * SPACING;
+      const x = this.x + Math.cos(this.angle) * offset;
+      const y = this.y + Math.sin(this.angle) * offset;
+      out.push(new Bullet(x, y, this.angle));
+    }
+    return out;
   }
 
   draw() {
@@ -295,7 +316,7 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = this.speedBoost > 0 ? '#0ff' : '#fff';
+    ctx.strokeStyle = this.tripleShot > 0 ? '#f0f' : (this.speedBoost > 0 ? '#0ff' : '#fff');
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
@@ -474,7 +495,8 @@ function update(dt) {
         explode(a.x, a.y, isStar ? 10 : a.size * 5);
         newAsteroids.push(...a.split());
         if (!isStar && Math.random() < 0.12) {
-          const type = Math.random() < 0.4 ? 'shield' : 'speed';
+          const r = Math.random();
+          const type = r < 0.34 ? 'shield' : r < 0.67 ? 'triple' : 'speed';
           powerUps.push(new PowerUp(a.x, a.y, type));
         }
       }
@@ -511,8 +533,9 @@ function update(dt) {
   for (const p of powerUps) {
     if (!p.dead && dist(ship, p) < ship.radius + p.radius) {
       p.dead = true;
-      if (p.type === 'shield') ship.shield = SHIELD_DURATION;
-      else ship.speedBoost = 5;
+      if (p.type === 'shield')      ship.shield     = SHIELD_DURATION;
+      else if (p.type === 'triple') ship.tripleShot = 5;
+      else                          ship.speedBoost = 5;
     }
   }
 
@@ -554,6 +577,11 @@ function drawHUD() {
   if (ship.shield > 0) {
     ctx.fillStyle = SHIELD_COLOR;
     ctx.fillText(`ESCUDO ${ship.shield.toFixed(1)}s`, 14, y);
+    y += 22;
+  }
+  if (ship.tripleShot > 0) {
+    ctx.fillStyle = '#f0f';
+    ctx.fillText(`TRIPLE ${ship.tripleShot.toFixed(1)}s`, 14, y);
   }
 
   ctx.textAlign = 'center';
