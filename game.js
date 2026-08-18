@@ -181,9 +181,10 @@ class ShootingStar extends Asteroid {
 const POWER_SPEED = 40;
 
 class PowerUp {
-  constructor(x, y) {
+  constructor(x, y, type = 'speed') {
     this.x = x;
     this.y = y;
+    this.type = type;
     this.radius = 10;
     this.dead = false;
     const angle = rand(0, Math.PI * 2);
@@ -202,17 +203,28 @@ class PowerUp {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rot);
-    ctx.strokeStyle = '#0ff';
+    ctx.strokeStyle = this.type === 'triple' ? '#f0f' : '#0ff';
     ctx.lineWidth = 1.5;
     ctx.lineJoin = 'round';
-    // Dos chevrones ">>"
-    for (let i = 0; i < 2; i++) {
-      const dx = i * 6;
-      ctx.beginPath();
-      ctx.moveTo(-2 + dx, -7);
-      ctx.lineTo( 6 + dx,  0);
-      ctx.lineTo(-2 + dx,  7);
-      ctx.stroke();
+    if (this.type === 'triple') {
+      // Tres barras paralelas "|||"
+      for (let i = 0; i < 3; i++) {
+        const dx = i * 5 - 5;
+        ctx.beginPath();
+        ctx.moveTo(dx, -7);
+        ctx.lineTo(dx,  7);
+        ctx.stroke();
+      }
+    } else {
+      // Dos chevrones ">>"
+      for (let i = 0; i < 2; i++) {
+        const dx = i * 6;
+        ctx.beginPath();
+        ctx.moveTo(-2 + dx, -7);
+        ctx.lineTo( 6 + dx,  0);
+        ctx.lineTo(-2 + dx,  7);
+        ctx.stroke();
+      }
     }
     ctx.restore();
   }
@@ -233,6 +245,7 @@ class Ship {
     this.invincible    = 3;
     this.shootCooldown = 0;
     this.speedBoost    = 0;
+    this.tripleShot    = 0;
     this.dead          = false;
   }
 
@@ -241,6 +254,7 @@ class Ship {
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedBoost    > 0) this.speedBoost    -= dt;
+    if (this.tripleShot    > 0) this.tripleShot    -= dt;
 
     const ROT   = 3.5;   // rad/s
     const THRUST = 260;  // px/s²
@@ -266,9 +280,17 @@ class Ship {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
     const NOSE = 21;
-    const ox = this.x + Math.cos(this.angle) * NOSE;
-    const oy = this.y + Math.sin(this.angle) * NOSE;
-    return [new Bullet(ox, oy, this.angle)];
+    const SPACING = 10;
+    const triple = this.tripleShot > 0;
+    const count = triple ? 3 : 1;
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const offset = NOSE + i * SPACING;
+      const x = this.x + Math.cos(this.angle) * offset;
+      const y = this.y + Math.sin(this.angle) * offset;
+      out.push(new Bullet(x, y, this.angle));
+    }
+    return out;
   }
 
   draw() {
@@ -279,7 +301,7 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = this.speedBoost > 0 ? '#0ff' : '#fff';
+    ctx.strokeStyle = this.tripleShot > 0 ? '#f0f' : (this.speedBoost > 0 ? '#0ff' : '#fff');
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
@@ -446,7 +468,7 @@ function update(dt) {
         score += isStar ? SHOOTING_STAR_POINTS : POINTS[a.size];
         explode(a.x, a.y, isStar ? 10 : a.size * 5);
         newAsteroids.push(...a.split());
-        if (!isStar && Math.random() < 0.12) powerUps.push(new PowerUp(a.x, a.y));
+        if (!isStar && Math.random() < 0.12) powerUps.push(new PowerUp(a.x, a.y, Math.random() < 0.5 ? 'speed' : 'triple'));
       }
     }
   }
@@ -467,7 +489,8 @@ function update(dt) {
   for (const p of powerUps) {
     if (!p.dead && dist(ship, p) < ship.radius + p.radius) {
       p.dead = true;
-      ship.speedBoost = 5;
+      if (p.type === 'triple') ship.tripleShot = 5;
+      else ship.speedBoost = 5;
     }
   }
 
@@ -503,6 +526,10 @@ function drawHUD() {
   if (ship.speedBoost > 0) {
     ctx.fillStyle = '#0ff';
     ctx.fillText(`VELOCIDAD ${ship.speedBoost.toFixed(1)}s`, 14, 48);
+  }
+  if (ship.tripleShot > 0) {
+    ctx.fillStyle = '#f0f';
+    ctx.fillText(`TRIPLE ${ship.tripleShot.toFixed(1)}s`, 14, 66);
   }
 
   ctx.textAlign = 'center';
