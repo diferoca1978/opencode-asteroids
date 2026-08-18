@@ -61,6 +61,7 @@ class Bullet {
 const RADII  = [0, 16, 30, 50];   // por tamaño 1, 2, 3
 const SPEEDS = [0, 85, 55, 32];   // velocidad base por tamaño
 const POINTS = [0, 100, 50, 20];  // puntos por tamaño
+const SKINS  = ['#fff', '#f0f', '#0f0', '#fa0', '#4af', '#f44']; // paleta de skins (blanco por defecto)
 
 class Asteroid {
   constructor(x, y, size = 3) {
@@ -245,7 +246,7 @@ class PowerUp {
 
 // ── Ship ──────────────────────────────────────────────────────────────────────
 class Ship {
-  constructor() { this.reset(); }
+  constructor() { this.skinIndex = 0; this.reset(); }
 
   reset() {
     this.x      = W / 2;
@@ -316,7 +317,7 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = this.tripleShot > 0 ? '#f0f' : (this.speedBoost > 0 ? '#0ff' : '#fff');
+    ctx.strokeStyle = this.tripleShot > 0 ? '#f0f' : (this.speedBoost > 0 ? '#0ff' : SKINS[this.skinIndex]);
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
@@ -533,9 +534,14 @@ function update(dt) {
   for (const p of powerUps) {
     if (!p.dead && dist(ship, p) < ship.radius + p.radius) {
       p.dead = true;
-      if (p.type === 'shield')      ship.shield     = SHIELD_DURATION;
-      else if (p.type === 'triple') ship.tripleShot = 5;
-      else                          ship.speedBoost = 5;
+      if (p.type === 'shield') {
+        ship.shield = SHIELD_DURATION;
+      } else if (p.type === 'triple') {
+        ship.tripleShot = 5;
+      } else {
+        ship.speedBoost = 5;
+        ship.skinIndex = (ship.skinIndex + 1) % SKINS.length;
+      }
     }
   }
 
